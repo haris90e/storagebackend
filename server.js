@@ -15,7 +15,7 @@ app.use(express.static("uploads"));
 app.use(express.json());
 
 // MongoDB connection
-mongoose.connect("mongodb+srv://baba:baba@cloud.3xeclpl.mongodb.net/?retryWrites=true&w=majority&appName=cloud", {
+mongoose.connect("mongodb+srv://baba:baba@cloud.o3nka2n.mongodb.net/?retryWrites=true&w=majority&appName=cloud", {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
