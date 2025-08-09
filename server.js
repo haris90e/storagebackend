@@ -28,8 +28,12 @@ app.post("/upload", upload.single("file"), (req, res) => {
   const fileStream = new stream.PassThrough();
   fileStream.end(req.file.buffer);
 
-  const uploadStream = gfsBucket.openUploadStream(req.file.originalname);
-  const fileId = uploadStream.id; // get the ObjectId immediately
+  // Store with original filename + MIME type
+  const uploadStream = gfsBucket.openUploadStream(req.file.originalname, {
+    contentType: req.file.mimetype
+  });
+
+  const fileId = uploadStream.id; // Get ObjectId before upload finishes
 
   fileStream.pipe(uploadStream)
     .on("error", (err) => {
@@ -45,7 +49,6 @@ app.post("/upload", upload.single("file"), (req, res) => {
     });
 });
 
-
 // ===== List files =====
 app.get("/files", async (req, res) => {
   try {
@@ -60,13 +63,28 @@ app.get("/files", async (req, res) => {
 });
 
 // ===== Download file by ID =====
-app.get("/download/:id", (req, res) => {
+app.get("/download/:id", async (req, res) => {
   try {
     const fileId = new ObjectId(req.params.id);
+    const files = await gfsBucket.find({ _id: fileId }).toArray();
+
+    if (!files || files.length === 0) {
+      return res.status(404).json({ error: "File not found" });
+    }
+
+    const file = files[0];
+
+    // Set correct headers
+    res.set({
+      "Content-Type": file.contentType || "application/octet-stream",
+      "Content-Disposition": `attachment; filename="${file.filename}"`
+    });
+
     gfsBucket.openDownloadStream(fileId)
       .on("error", () => res.status(404).json({ error: "File not found" }))
       .pipe(res);
-  } catch {
+
+  } catch (err) {
     res.status(400).json({ error: "Invalid file ID" });
   }
 });
