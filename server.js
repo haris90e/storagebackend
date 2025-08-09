@@ -11,25 +11,17 @@ app.use(cors());
 app.use(express.json());
 
 // ===== MongoDB Connection =====
-const mongoURI = "mongodb+srv://baba:baba@cluster0.6p0km71.mongodb.net/fileStorageDB?retryWrites=true&w=majority&appName=Cluster0&tls=true&tlsAllowInvalidCertificates=true";
+const mongoURI = "mongodb+srv://baba:baba@cluster0.6p0km71.mongodb.net/fileStorageDB?retryWrites=true&w=majority&appName=Cluster0&ssl=true&tlsAllowInvalidHostnames=true";
 const dbName = "fileStorageDB";
 
 let gfsBucket;
 let db;
 
-MongoClient.connect(mongoURI)
-  .then(client => {
-    db = client.db(dbName);
-    gfsBucket = new GridFSBucket(db, { bucketName: "uploads" });
-    console.log("✅ MongoDB connected");
-  })
-  .catch(err => console.error("❌ MongoDB Connection Error:", err));
-
-// ===== Multer (memory storage) =====
+// Multer (memory storage)
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-// ===== Upload file =====
+// Upload file
 app.post("/upload", upload.single("file"), (req, res) => {
   if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
@@ -47,7 +39,7 @@ app.post("/upload", upload.single("file"), (req, res) => {
     });
 });
 
-// ===== List files =====
+// List files
 app.get("/files", async (req, res) => {
   try {
     const files = await gfsBucket.find({}).sort({ uploadDate: -1 }).toArray();
@@ -57,7 +49,7 @@ app.get("/files", async (req, res) => {
   }
 });
 
-// ===== Download file =====
+// Download file
 app.get("/download/:filename", async (req, res) => {
   try {
     const file = await gfsBucket.find({ filename: req.params.filename }).toArray();
@@ -70,7 +62,7 @@ app.get("/download/:filename", async (req, res) => {
   }
 });
 
-// ===== Delete file =====
+// Delete file
 app.delete("/delete/:filename", async (req, res) => {
   try {
     const file = await gfsBucket.find({ filename: req.params.filename }).toArray();
@@ -84,5 +76,14 @@ app.delete("/delete/:filename", async (req, res) => {
   }
 });
 
-app.listen(PORT, () => console.log(`🚀 Server running at http://localhost:${PORT}`));
+// Connect to MongoDB FIRST, then start server
+MongoClient.connect(mongoURI)
+  .then(client => {
+    db = client.db(dbName);
+    gfsBucket = new GridFSBucket(db, { bucketName: "uploads" });
+    console.log("✅ MongoDB connected");
 
+    // Start server only after DB connection
+    app.listen(PORT, () => console.log(`🚀 Server running at http://localhost:${PORT}`));
+  })
+  .catch(err => console.error("❌ MongoDB Connection Error:", err));
