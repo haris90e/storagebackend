@@ -29,15 +29,22 @@ app.post("/upload", upload.single("file"), (req, res) => {
   fileStream.end(req.file.buffer);
 
   const uploadStream = gfsBucket.openUploadStream(req.file.originalname);
+  const fileId = uploadStream.id; // get the ObjectId immediately
+
   fileStream.pipe(uploadStream)
     .on("error", (err) => {
       console.error(err);
       res.status(500).json({ error: "Error uploading file" });
     })
-    .on("finish", (file) => {
-      res.json({ message: "File uploaded successfully", id: file._id, filename: req.file.originalname });
+    .on("finish", () => {
+      res.json({
+        message: "File uploaded successfully",
+        id: fileId,
+        filename: req.file.originalname
+      });
     });
 });
+
 
 // ===== List files =====
 app.get("/files", async (req, res) => {
