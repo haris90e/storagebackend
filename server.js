@@ -1,7 +1,7 @@
 const express = require("express");
 const multer = require("multer");
 const cors = require("cors");
-const { MongoClient, GridFSBucket } = require("mongodb");
+const { MongoClient, GridFSBucket, ObjectId } = require("mongodb");
 const stream = require("stream");
 
 const app = express();
@@ -21,7 +21,7 @@ let db;
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-// Upload file
+// ===== Upload file =====
 app.post("/upload", upload.single("file"), (req, res) => {
   if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
@@ -34,42 +34,41 @@ app.post("/upload", upload.single("file"), (req, res) => {
       console.error(err);
       res.status(500).json({ error: "Error uploading file" });
     })
-    .on("finish", () => {
-      res.json({ message: "File uploaded successfully", filename: req.file.originalname });
+    .on("finish", (file) => {
+      res.json({ message: "File uploaded successfully", id: file._id, filename: req.file.originalname });
     });
 });
 
-// List files
+// ===== List files =====
 app.get("/files", async (req, res) => {
   try {
     const files = await gfsBucket.find({}).sort({ uploadDate: -1 }).toArray();
-    res.json(files.map(f => f.filename));
+    res.json(files.map(f => ({
+      id: f._id,
+      filename: f.filename
+    })));
   } catch (err) {
     res.status(500).json({ error: "Failed to list files" });
   }
 });
 
-// Download file
-app.get("/download/:filename", async (req, res) => {
+// ===== Download file by ID =====
+app.get("/download/:id", (req, res) => {
   try {
-    const file = await gfsBucket.find({ filename: req.params.filename }).toArray();
-    if (!file || file.length === 0) {
-      return res.status(404).json({ error: "File not found" });
-    }
-    gfsBucket.openDownloadStreamByName(req.params.filename).pipe(res);
+    const fileId = new ObjectId(req.params.id);
+    gfsBucket.openDownloadStream(fileId)
+      .on("error", () => res.status(404).json({ error: "File not found" }))
+      .pipe(res);
   } catch {
-    res.status(400).json({ error: "Invalid file request" });
+    res.status(400).json({ error: "Invalid file ID" });
   }
 });
 
-// Delete file
-app.delete("/delete/:filename", async (req, res) => {
+// ===== Delete file by ID =====
+app.delete("/delete/:id", async (req, res) => {
   try {
-    const file = await gfsBucket.find({ filename: req.params.filename }).toArray();
-    if (!file || file.length === 0) {
-      return res.status(404).json({ error: "File not found" });
-    }
-    await gfsBucket.delete(file[0]._id);
+    const fileId = new ObjectId(req.params.id);
+    await gfsBucket.delete(fileId);
     res.json({ message: "File deleted successfully" });
   } catch (err) {
     res.status(500).json({ error: "Failed to delete file" });
@@ -82,8 +81,6 @@ MongoClient.connect(mongoURI)
     db = client.db(dbName);
     gfsBucket = new GridFSBucket(db, { bucketName: "uploads" });
     console.log("✅ MongoDB connected");
-
-    // Start server only after DB connection
     app.listen(PORT, () => console.log(`🚀 Server running at http://localhost:${PORT}`));
   })
   .catch(err => console.error("❌ MongoDB Connection Error:", err));
