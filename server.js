@@ -11,7 +11,7 @@ app.use(cors());
 app.use(express.json());
 
 // ===== MongoDB Connection =====
-const mongoURI = "mongodb+srv://baba:baba@cluster0.6p0km71.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+const mongoURI = "mongodb+srv://baba:baba@cluster0.6p0km71.mongodb.net/fileStorageDB?retryWrites=true&w=majority&appName=Cluster0&tls=true&tlsAllowInvalidCertificates=true";
 const dbName = "fileStorageDB";
 
 let gfsBucket;
@@ -85,3 +85,4 @@ app.delete("/delete/:filename", async (req, res) => {
 });
 
 app.listen(PORT, () => console.log(`🚀 Server running at http://localhost:${PORT}`));
+
